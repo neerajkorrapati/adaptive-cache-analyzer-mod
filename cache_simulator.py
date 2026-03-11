@@ -1,64 +1,104 @@
-from collections import OrderedDict
+import random
+from collections import defaultdict
 
 
-def simulate_cache(sequence, cache_size):
+# ---------------- Replacement Logic ----------------
 
-    cache = OrderedDict()
-    hits = 0
+def replace_block(cache, policy, freq):
+
+    if len(cache) == 0:
+        return
+
+    if policy == "FIFO":
+        cache.pop(0)
+
+    elif policy == "LRU":
+        cache.pop(0)
+
+    elif policy == "Random":
+        idx = random.randint(0, len(cache) - 1)
+        cache.pop(idx)
+
+    elif policy == "LFU":
+        least = min(cache, key=lambda x: freq[x])
+        cache.remove(least)
+
+
+# ---------------- Cache Simulation ----------------
+
+def simulate_two_level_cache(sequence, l1_size, l2_size, policy):
+
+    l1 = []
+    l2 = []
+
+    freq = defaultdict(int)
+
+    l1_hits = 0
+    l2_hits = 0
     misses = 0
 
     for block in sequence:
 
-        if block in cache:
+        # ---------- L1 ----------
+        if block in l1:
 
-            hits += 1
-            cache.move_to_end(block)
+            l1_hits += 1
 
+            if policy == "LRU":
+                l1.remove(block)
+                l1.append(block)
+
+        # ---------- L2 ----------
+        elif block in l2:
+
+            l2_hits += 1
+
+            if policy == "LRU":
+                l2.remove(block)
+                l2.append(block)
+
+            if len(l1) >= l1_size:
+                replace_block(l1, policy, freq)
+
+            l1.append(block)
+
+        # ---------- MISS ----------
         else:
 
             misses += 1
 
-            if len(cache) >= cache_size:
-                cache.popitem(last=False)
+            if len(l2) >= l2_size:
+                replace_block(l2, policy, freq)
 
-            cache[block] = True
+            l2.append(block)
 
-    total = hits + misses
+            if len(l1) >= l1_size:
+                replace_block(l1, policy, freq)
 
-    if total == 0:
-        return 0
+            l1.append(block)
 
-    return hits / total
+        freq[block] += 1
 
+    total = len(sequence)
 
-def analyze_cache_sizes(sequence, max_cache_size):
+    l1_rate = l1_hits / total
+    l2_rate = l2_hits / total
+    overall_hit = (l1_hits + l2_hits) / total
 
-    results = {}
-
-    for size in range(1, max_cache_size + 1):
-
-        hit_rate = simulate_cache(sequence, size)
-
-        results[size] = hit_rate
-
-    return results
+    return l1_rate, l2_rate, overall_hit
 
 
-def adaptive_cache(sequence, max_cache_size):
+# ---------------- Adaptive Cache ----------------
 
-    best_size = 1
-    best_hit = 0
+def adaptive_cache_from_workload(sequence, max_l1=64, max_l2=128):
 
-    history = []
+    working_set = len(set(sequence))
 
-    for size in range(1, max_cache_size + 1):
+    # better heuristic
+    l1_size = int(working_set * 0.4)
+    l2_size = int(working_set * 1.1)
 
-        hit_rate = simulate_cache(sequence, size)
+    l1_size = max(2, min(l1_size, max_l1))
+    l2_size = max(l1_size + 1, min(l2_size, max_l2))
 
-        history.append((size, hit_rate))
-
-        if hit_rate > best_hit:
-            best_hit = hit_rate
-            best_size = size
-
-    return best_size, best_hit, history
+    return l1_size, l2_size, working_set
