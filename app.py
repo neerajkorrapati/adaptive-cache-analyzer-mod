@@ -29,7 +29,7 @@ sequence_length = st.sidebar.slider(
 max_cache_size = st.sidebar.slider(
     "Maximum Cache Size Tested",
     5,
-    50,
+    64,
     20
 )
 
