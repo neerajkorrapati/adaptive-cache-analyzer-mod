@@ -1,105 +1,129 @@
 import streamlit as st
 import random
 import pandas as pd
-from cache_simulator import analyze_cache_sizes, adaptive_cache
+
+from cache_simulator import simulate_two_level_cache, adaptive_cache_from_workload
 
 st.set_page_config(page_title="Adaptive Cache System", layout="wide")
 
 st.title("Self-Adapting Cache Memory Management System")
 
 st.write("""
-This simulator analyzes memory access workloads and dynamically determines
-the optimal cache size that maximizes cache hit rate.
+This simulator models a **two-level cache hierarchy (L1 + L2)** and dynamically
+adjusts cache sizes based on observed CPU memory access behavior.
 
-The system evaluates cache performance across different cache sizes and
-adapts the cache configuration based on workload characteristics.
+The system estimates the **working set size** and recommends
+optimal L1 and L2 cache sizes.
 """)
 
-# Sidebar controls
 
-st.sidebar.header("Simulation Settings")
+# ---------------- Sidebar ----------------
 
-sequence_length = st.sidebar.slider(
-    "Memory Access Length",
-    50,
-    400,
-    150
-)
+st.sidebar.header("System Configuration")
 
-max_cache_size = st.sidebar.slider(
-    "Maximum Cache Size Tested",
-    5,
-    64,
-    20
+memory_size = st.sidebar.slider("Main Memory Size", 32, 512, 128)
+
+access_length = st.sidebar.slider("Memory Access Length", 50, 400, 150)
+
+policy = st.sidebar.selectbox(
+    "Cache Replacement Policy",
+    ["FIFO", "LRU", "LFU", "Random"]
 )
 
 workload = st.sidebar.selectbox(
-    "Memory Access Pattern",
+    "CPU Workload Type",
     ["Random", "Sequential", "Localized"]
 )
 
 
-# Memory sequence generator
+# ---------------- Workload Generator ----------------
 
 def generate_sequence():
 
     if workload == "Random":
+        return [random.randint(1, memory_size) for _ in range(access_length)]
 
-        return [random.randint(1, 60) for _ in range(sequence_length)]
+    elif workload == "Sequential":
 
-    if workload == "Sequential":
+        base = list(range(1, memory_size + 1))
+        seq = []
 
-        base_pattern = list(range(10))
-        sequence = []
+        for i in range(access_length):
+            seq.append(base[i % len(base)])
 
-        for i in range(sequence_length):
-            sequence.append(base_pattern[i % len(base_pattern)])
+        return seq
 
-        return sequence
+    elif workload == "Localized":
 
-    if workload == "Localized":
+        hot_region = [
+            random.randint(1, memory_size // 5)
+            for _ in range(int(access_length * 0.7))
+        ]
 
-        hot_region = [random.randint(1, 10) for _ in range(int(sequence_length * 0.7))]
-        noise = [random.randint(1, 60) for _ in range(int(sequence_length * 0.3))]
+        noise = [
+            random.randint(1, memory_size)
+            for _ in range(int(access_length * 0.3))
+        ]
 
-        return hot_region + noise
+        seq = hot_region + noise
+        random.shuffle(seq)
+
+        return seq
 
 
-if st.button("Run Adaptive Cache Analysis"):
+# ---------------- Run Simulation ----------------
+
+if st.button("Run Simulation"):
 
     sequence = generate_sequence()
 
-    results = analyze_cache_sizes(sequence, max_cache_size)
+    l1_rec, l2_rec, working_set = adaptive_cache_from_workload(sequence)
 
-    adaptive_size, adaptive_hit, history = adaptive_cache(sequence, max_cache_size)
+    l1_hit, l2_hit, overall_hit = simulate_two_level_cache(
+        sequence,
+        l1_rec,
+        l2_rec,
+        policy
+    )
 
-    df = pd.DataFrame({
-        "Cache Size": list(results.keys()),
-        "Hit Rate": list(results.values())
-    })
+    # ---------------- Recommendation ----------------
 
-    df["Hit Rate %"] = df["Hit Rate"] * 100
+    st.subheader("Adaptive Cache Recommendation")
 
-    st.subheader("System Metrics")
+    c1, c2, c3 = st.columns(3)
 
-    col1, col2, col3 = st.columns(3)
-
-    col1.metric("Memory Accesses", sequence_length)
-    col2.metric("Recommended Cache Size", adaptive_size)
-    col3.metric("Expected Hit Rate", f"{adaptive_hit*100:.2f}%")
+    c1.metric("Working Set Size", working_set)
+    c2.metric("Recommended L1 Cache", l1_rec)
+    c3.metric("Recommended L2 Cache", l2_rec)
 
     st.divider()
 
+    # ---------------- Performance ----------------
+
+    st.subheader("Cache Performance Metrics")
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric("L1 Hit Rate", f"{l1_hit*100:.2f}%")
+    c2.metric("L2 Hit Rate", f"{l2_hit*100:.2f}%")
+    c3.metric("Overall Hit Rate", f"{overall_hit*100:.2f}%")
+
+    st.divider()
+
+    # ---------------- Memory Access Visualization ----------------
+
     st.subheader("Memory Access Sequence")
 
-    st.markdown("<div style='height:250px; overflow-y:scroll;'>", unsafe_allow_html=True)
+    cols_per_row = 10
 
-    cols_per_row = 8
-    rows = [sequence[i:i + cols_per_row] for i in range(0, len(sequence), cols_per_row)]
+    rows = [
+        sequence[i:i + cols_per_row]
+        for i in range(0, len(sequence), cols_per_row)
+    ]
 
     for row in rows:
 
-        cols = st.columns(cols_per_row)
+        cols = st.columns(len(row))
 
         for i, addr in enumerate(row):
 
@@ -107,44 +131,66 @@ if st.button("Run Adaptive Cache Analysis"):
                 f"""
                 <div style="
                 background-color:#0f172a;
-                padding:12px;
-                border-radius:10px;
+                padding:10px;
+                border-radius:8px;
                 text-align:center;
                 border:1px solid #334155;
                 font-weight:bold;
                 color:#22c55e;">
-                ADDR<br>{addr}
+                {addr}
                 </div>
                 """,
                 unsafe_allow_html=True
             )
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.divider()
+
+    # ---------------- Memory Access Frequency ----------------
+
+    st.subheader("Memory Access Frequency")
+
+    freq = {}
+
+    for block in sequence:
+        freq[block] = freq.get(block, 0) + 1
+
+    freq_df = pd.DataFrame(
+        list(freq.items()),
+        columns=["Memory Block", "Access Count"]
+    )
+
+    freq_df = freq_df.sort_values("Memory Block")
+
+    st.bar_chart(freq_df.set_index("Memory Block"))
 
     st.divider()
+
+    # ---------------- Cache Size vs Performance Graph ----------------
 
     st.subheader("Cache Performance vs Cache Size")
 
-    chart_data = df.set_index("Cache Size")["Hit Rate %"]
+    l1_sizes = list(range(1, 21))
+    l1_results = []
+    l2_results = []
 
-    st.line_chart(chart_data)
+    for size in l1_sizes:
 
-    st.divider()
+        l1_rate, l2_rate, overall = simulate_two_level_cache(
+            sequence,
+            size,
+            size * 2,
+            policy
+        )
 
-    st.subheader("Detailed Performance Table")
+        l1_results.append(l1_rate * 100)
+        l2_results.append(l2_rate * 100)
 
-    st.dataframe(df)
+    graph_df = pd.DataFrame({
+        "Cache Size": l1_sizes,
+        "L1 Hit Rate (%)": l1_results,
+        "L2 Hit Rate (%)": l2_results
+    })
 
-    st.divider()
+    graph_df = graph_df.set_index("Cache Size")
 
-    st.subheader("Adaptive Cache Decision")
-
-    st.write(f"""
-The system evaluated cache sizes from **1 to {max_cache_size}**.
-
-The optimal cache size for this workload is **{adaptive_size}**, which produces
-the highest hit rate of **{adaptive_hit*100:.2f}%**.
-
-This demonstrates adaptive cache allocation where cache resources are tuned
-based on observed workload behavior.
-""")
+    st.line_chart(graph_df)
