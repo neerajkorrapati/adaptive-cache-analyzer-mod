@@ -119,6 +119,7 @@ def calculate_amat(l1_hit_rate, l2_local_hit_rate):
     return L1_HT + (l1_mr * (L2_HT + (l2_mr * MEM_P)))
 
 def adaptive_cache_from_workload(sequence, max_l1=32, max_l2=64):
+    
     """
     Tightened heuristic to force capacity pressure so hit rates differ.
     """
