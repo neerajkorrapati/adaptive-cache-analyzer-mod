@@ -57,6 +57,8 @@ if st.button("Run Simulation"):
     l1_hit, l2_hit, overall_hit, miss_rate, util = simulate_two_level_cache(sequence, l1_rec, l2_rec, policy)
     amat = calculate_amat(l1_hit, l2_hit)
     ws_ratio = working_set_ratio(sequence, l1_rec)
+    st.write(f"Raw Math l2: {len(set(sequence)) * 0.4}")
+    st.write(f"Actual L1 used: {l1_rec}")
 
     # ---------------- Recommendation ----------------
     st.subheader("Adaptive Cache Recommendation")
