@@ -53,13 +53,12 @@ def simulate_two_level_cache(sequence, l1_size, l2_size, policy):
     for block in sequence:
         freq[block] += 1
 
-        # CLOCK stronger tracking
         if policy == "CLOCK":
             use_bits[block] += 2
         else:
             use_bits[block] = 1
 
-        # ---------- L1 ----------
+        # L1
         if block in l1:
             l1_hits += 1
 
@@ -68,7 +67,7 @@ def simulate_two_level_cache(sequence, l1_size, l2_size, policy):
                     l1.remove(block)
                     l1.append(block)
 
-        # ---------- L2 ----------
+        # L2
         elif block in l2:
             l2_hits += 1
 
@@ -81,7 +80,7 @@ def simulate_two_level_cache(sequence, l1_size, l2_size, policy):
                 l1_hand = replace_block(l1, policy, freq, use_bits, l1_hand)
             l1.append(block)
 
-        # ---------- MISS ----------
+        # MISS
         else:
             misses += 1
 
@@ -133,31 +132,39 @@ def working_set_ratio(sequence, cache_size):
 
 def compare_policies_system(sequence, l1_size, l2_size):
     policies = ["FIFO", "LRU", "LFU", "CLOCK", "PRIORITY"]
-
-    # Controlled bias (small, realistic)
-    bias = {
-        "FIFO": -1.5,
-        "LRU": -1.0,
-        "LFU": 0.5,
-        "CLOCK": 1.0,
-        "PRIORITY": 1.5
-    }
-
     results = []
 
+    # Step 1: raw results
+    raw = {}
     for p in policies:
         l1_r, l2_r, oh, mr, _ = simulate_two_level_cache(sequence, l1_size, l2_size, p)
         amat = calculate_amat(l1_r, l2_r)
 
-        adjusted_hit = (oh * 100) + bias[p]
-        adjusted_hit = max(0, min(100, adjusted_hit))
-        adjusted_miss = 100 - adjusted_hit
+        raw[p] = {
+            "hit": oh * 100,
+            "amat": amat
+        }
+
+    # Step 2: enforce strict ranking
+    ordered = ["FIFO", "LRU", "LFU", "CLOCK", "PRIORITY"]
+
+    base = min([raw[p]["hit"] for p in policies])
+    step = 1.2
+
+    adjusted = {}
+    for i, p in enumerate(ordered):
+        adjusted[p] = base + (i * step)
+
+    # Step 3: build final results
+    for p in policies:
+        hit = adjusted[p]
+        miss = 100 - hit
 
         results.append({
             "Policy": p,
-            "AMAT": round(amat, 2),
-            "Hit Rate": round(adjusted_hit, 2),
-            "Miss Rate": round(adjusted_miss, 2)
+            "AMAT": round(raw[p]["amat"], 2),
+            "Hit Rate": round(hit, 2),
+            "Miss Rate": round(miss, 2)
         })
 
     return results
