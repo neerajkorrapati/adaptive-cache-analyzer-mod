@@ -32,7 +32,7 @@ if workload == "Fixed Set":
     if st.sidebar.button("Regenerate Fixed Set"):
         st.session_state.fixed_seq = [random.randint(1, memory_size) for _ in range(access_length)]
 
-# ---------------- Workload Generator ----------------
+# ---------------- Workload ----------------
 def generate_sequence():
     if workload == "Fixed Set":
         return st.session_state.fixed_seq
@@ -50,7 +50,7 @@ def generate_sequence():
                 seq.append(random.randint(1, memory_size))
         return seq
 
-# ---------------- Run Simulation ----------------
+# ---------------- Run ----------------
 if st.button("Run Simulation"):
     sequence = generate_sequence()
     l1_rec, l2_rec, working_set = adaptive_cache_from_workload(sequence)
@@ -62,7 +62,6 @@ if st.button("Run Simulation"):
     amat = calculate_amat(l1_hit, l2_hit)
     ws_ratio = working_set_ratio(sequence, l1_rec)
 
-    # ---------------- Recommendation ----------------
     st.subheader("Adaptive Cache Recommendation")
     c1, c2, c3 = st.columns(3)
     c1.metric("Working Set Size", working_set)
@@ -70,7 +69,6 @@ if st.button("Run Simulation"):
     c3.metric("Recommended L2 Cache", l2_rec)
     st.divider()
 
-    # ---------------- Performance ----------------
     st.subheader("Cache Performance Metrics")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("L1 Hit Rate", f"{l1_hit*100:.2f}%")
@@ -80,48 +78,6 @@ if st.button("Run Simulation"):
     st.write(f"Working Set Ratio: {ws_ratio:.2f}")
     st.divider()
 
-    # ---------------- Memory Access Sequence ----------------
-    st.subheader("Memory Access Sequence")
-    cols_per_row = 10
-    rows = [sequence[i:i + cols_per_row] for i in range(0, len(sequence), cols_per_row)]
-    for row in rows:
-        cols = st.columns(len(row))
-        for i, addr in enumerate(row):
-            cols[i].markdown(
-                f"""<div style="background-color:#0f172a;padding:10px;border-radius:8px;text-align:center;border:1px solid #334155;font-weight:bold;color:#22c55e;">{addr}</div>""",
-                unsafe_allow_html=True
-            )
-    st.divider()
-
-    # ---------------- Frequency ----------------
-    st.subheader("Memory Access Frequency")
-    freq = {}
-    for block in sequence:
-        freq[block] = freq.get(block, 0) + 1
-    freq_df = pd.DataFrame(list(freq.items()), columns=["Memory Block", "Access Count"]).sort_values("Memory Block")
-    st.bar_chart(freq_df.set_index("Memory Block"))
-    st.divider()
-
-    # ---------------- Cache Size vs Performance ----------------
-    st.subheader("Cache Performance vs Cache Size")
-    l1_sizes = list(range(1, 21))
-    l1_results, l2_results = [], []
-
-    for size in l1_sizes:
-        l1_r, l2_r, _, _, _ = simulate_two_level_cache(sequence, size, size * 2, policy)
-        l1_results.append(l1_r * 100)
-        l2_results.append(l2_r * 100)
-
-    graph_df = pd.DataFrame({
-        "Cache Size": l1_sizes,
-        "L1 Hit Rate (%)": l1_results,
-        "L2 Hit Rate (%)": l2_results
-    }).set_index("Cache Size")
-
-    st.line_chart(graph_df)
-    st.divider()
-
-    # ---------------- Policy Comparison ----------------
     st.subheader("System-Level Replacement Policy Comparison")
     policy_results = compare_policies_system(sequence, l1_rec, l2_rec)
     policy_df = pd.DataFrame(policy_results)
