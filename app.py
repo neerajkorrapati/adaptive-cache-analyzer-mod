@@ -82,9 +82,3 @@ if st.button("Run Simulation"):
 
     st.write("### Hit Rate Comparison")
     st.bar_chart(policy_df.set_index("Policy")["Hit Rate"])
-
-    st.write("### Miss Rate Comparison")
-    st.bar_chart(policy_df.set_index("Policy")["Miss Rate"])
-
-    st.write("### AMAT Comparison")
-    st.bar_chart(policy_df.set_index("Policy")["AMAT"])
