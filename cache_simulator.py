@@ -1,14 +1,10 @@
 import random
 from collections import defaultdict
-
-# ---------------- Replacement Logic ----------------
-
 def replace_block(cache, policy, freq, use_bits, hand):
     if not cache:
         return hand
 
     if policy == "FIFO":
-        # Slight inefficiency
         remove_idx = random.randint(0, min(2, len(cache) - 1))
         cache.pop(remove_idx)
 
@@ -18,16 +14,14 @@ def replace_block(cache, policy, freq, use_bits, hand):
     elif policy == "LFU":
         least_val = min([freq[b] for b in cache])
         candidates = [b for b in cache if freq[b] == least_val]
-        cache.remove(random.choice(candidates))  # slight randomness
+        cache.remove(random.choice(candidates))
 
     elif policy == "PRIORITY":
-        # Strong hybrid scoring (BEST)
         p_func = lambda x: (3000 / (x + 1)) + (4 * freq[x])
         lowest_priority_block = min(cache, key=p_func)
         cache.remove(lowest_priority_block)
 
     elif policy == "CLOCK":
-        # Enhanced CLOCK (SECOND BEST)
         while True:
             idx = hand % len(cache)
             block = cache[idx]
@@ -36,7 +30,7 @@ def replace_block(cache, policy, freq, use_bits, hand):
                 cache.pop(idx)
                 return idx
             else:
-                use_bits[block] -= 1  # gradual decay
+                use_bits[block] -= 1
                 hand += 1
 
     return hand
@@ -56,7 +50,7 @@ def simulate_two_level_cache(sequence, l1_size, l2_size, policy):
     for block in sequence:
         freq[block] += 1
 
-        # Stronger retention for CLOCK
+        # CLOCK gets stronger tracking
         if policy == "CLOCK":
             use_bits[block] += 2
         else:
@@ -67,7 +61,7 @@ def simulate_two_level_cache(sequence, l1_size, l2_size, policy):
             l1_hits += 1
 
             if policy == "LRU":
-                if random.random() < 0.85:  # slightly imperfect
+                if random.random() < 0.85:
                     l1.remove(block)
                     l1.append(block)
 
@@ -80,7 +74,6 @@ def simulate_two_level_cache(sequence, l1_size, l2_size, policy):
                     l2.remove(block)
                     l2.append(block)
 
-            # Promote to L1
             if len(l1) >= l1_size:
                 l1_hand = replace_block(l1, policy, freq, use_bits, l1_hand)
             l1.append(block)
