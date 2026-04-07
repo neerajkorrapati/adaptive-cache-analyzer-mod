@@ -17,11 +17,9 @@ This simulator models a **two-level cache hierarchy (L1 + L2)** and dynamically
 adjusts cache sizes based on observed CPU memory access behavior.
 """)
 
-# --- Session State ---
 if 'fixed_seq' not in st.session_state:
     st.session_state.fixed_seq = [random.randint(1, 50) for _ in range(200)]
 
-# ---------------- Sidebar ----------------
 st.sidebar.header("System Configuration")
 memory_size = st.sidebar.slider("Main Memory Size", 32, 512, 128)
 access_length = st.sidebar.slider("Memory Access Length", 50, 400, 150)
@@ -32,7 +30,6 @@ if workload == "Fixed Set":
     if st.sidebar.button("Regenerate Fixed Set"):
         st.session_state.fixed_seq = [random.randint(1, memory_size) for _ in range(access_length)]
 
-# ---------------- Workload ----------------
 def generate_sequence():
     if workload == "Fixed Set":
         return st.session_state.fixed_seq
@@ -50,7 +47,6 @@ def generate_sequence():
                 seq.append(random.randint(1, memory_size))
         return seq
 
-# ---------------- Run ----------------
 if st.button("Run Simulation"):
     sequence = generate_sequence()
     l1_rec, l2_rec, working_set = adaptive_cache_from_workload(sequence)
