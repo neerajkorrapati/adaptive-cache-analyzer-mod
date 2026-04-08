@@ -5,7 +5,6 @@ from cache_simulator import (
     simulate_two_level_cache,
     adaptive_cache_from_workload,
     calculate_amat,
-    working_set_ratio,
     compare_policies_system
 )
 
@@ -33,10 +32,8 @@ if workload == "Fixed Set":
 def generate_sequence():
     if workload == "Fixed Set":
         return st.session_state.fixed_seq
-
     elif workload == "Sequential":
         return [(i % memory_size) + 1 for i in range(access_length)]
-
     elif workload == "Localized":
         hot_blocks = [random.randint(1, 15) for _ in range(8)]
         seq = []
@@ -56,7 +53,6 @@ if st.button("Run Simulation"):
     )
 
     amat = calculate_amat(l1_hit, l2_hit)
-    ws_ratio = working_set_ratio(sequence, l1_rec)
 
     st.subheader("Adaptive Cache Recommendation")
     c1, c2, c3 = st.columns(3)
@@ -71,7 +67,6 @@ if st.button("Run Simulation"):
     c2.metric("L2 Hit Rate", f"{l2_hit*100:.2f}%")
     c3.metric("Overall Hit Rate", f"{overall_hit*100:.2f}%")
     c4.metric("AMAT", f"{amat:.2f} cycles")
-    st.write(f"Working Set Ratio: {ws_ratio:.2f}")
     st.divider()
 
     st.subheader("System-Level Replacement Policy Comparison")
